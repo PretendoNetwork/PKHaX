@@ -13,7 +13,7 @@ namespace PKHaX {
 		public static int port = 9000;
 
 		public static byte[] ILLEGAL_POKEMON_MAGIC = new byte[] { 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A };
-		public static byte[] LEGAL_POKEMON_MAGIC = new byte[] { 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00 };
+		public static byte[] LEGAL_POKEMON_MAGIC = new byte[] { 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00 };
 
 		public static async Task HandleIncomingConnections() {
 			while (true) {
@@ -81,7 +81,7 @@ namespace PKHaX {
 			Console.WriteLine("Server listening on {0}", prefix);
 
 			Task listenTask = HandleIncomingConnections();
-			
+
 			listenTask.GetAwaiter().GetResult();
 
 			listener.Close();
