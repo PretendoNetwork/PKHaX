@@ -400,3 +400,5 @@ FodyWeavers.xsd
 # custom
 bin
 obj
+*.pem
+.env
