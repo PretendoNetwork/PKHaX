@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Collections.Generic;
 using PKHeX.Core;
 using dotenv.net;
+using System.Linq;
 
 namespace PKHaX {
 	class Server {
@@ -14,10 +15,15 @@ namespace PKHaX {
 
 		public static string protocol = "http";
 		public static int port = 9000;
-		public static byte[] EXPECTED_CERTIFICATE_ID = new byte[] { 0xFF, 0xFF };
+		public static byte[] EXPECTED_CERTIFICATE_ID = new byte[] { 0x03, 0x00 };
 		public static byte[] INVALID_CERTIFICATE_ID_RESPONSE = new byte[] { 0x02 };
 		public static byte[] ILLEGAL_POKEMON_RESPONSE = new byte[] { 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A };
 		public static byte[] LEGAL_POKEMON_MAGIC = new byte[] { 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00 };
+		public static byte[] rsaHeader = {
+			0x30, 0x82, 0x01, 0x22, 0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86,
+			0xF7, 0x0D, 0x01, 0x01, 0x01, 0x05, 0x00, 0x03, 0x82, 0x01, 0x0F, 0x00
+		};
+
 		public static RSA RSA_KEY_PAIR = RSA.Create();
 
 		public static Dictionary<string, Dictionary<string, Func<HttpListenerRequest, byte[]>>> REQUEST_HANDLERS = new Dictionary<string, Dictionary<string, Func<HttpListenerRequest, byte[]>>>();
@@ -55,23 +61,25 @@ namespace PKHaX {
 
 			byte[] body = ms.ToArray();
 
-			byte[] serviceToken = new byte[0x58];
-			byte[] unknown = new byte[0xA7];
+			byte[] serviceToken = new byte[0x31];
+			byte[] requestInfo = new byte[0x6];
+			byte[] encryptedPokemonAndPadding = new byte[body.Length - requestInfo.Length - serviceToken.Length];
 			byte[] encryptedPokemon = new byte[0xE8];
 
 			int serviceTokenOffset = 0;
-			int unknownOffset = serviceTokenOffset + serviceToken.Length;
-			int encryptedPokemonOffset = unknownOffset + unknown.Length;
+			int requestInfoOffset = serviceTokenOffset + serviceToken.Length;
+			int encryptedPokemonAndPaddingOffset = requestInfoOffset + requestInfo.Length;
 
 			Array.Copy(body, serviceTokenOffset, serviceToken, 0, serviceToken.Length);
-			Array.Copy(body, unknownOffset, unknown, 0, unknown.Length);
-			Array.Copy(body, encryptedPokemonOffset, encryptedPokemon, 0, encryptedPokemon.Length);
+			Array.Copy(body, requestInfoOffset, requestInfo, 0, requestInfo.Length);
+			Array.Copy(body, encryptedPokemonAndPaddingOffset, encryptedPokemonAndPadding, 0, encryptedPokemonAndPadding.Length);
+			Array.Copy(encryptedPokemonAndPadding, encryptedPokemonAndPadding.Length - 0xE8, encryptedPokemon, 0, encryptedPokemon.Length);
 
 			// TODO - VERIFY SERVICE TOKEN
 
 			byte[] certificateID = new byte[0x2];
 
-			Array.Copy(unknown, 0, certificateID, 0, certificateID.Length);
+			Array.Copy(requestInfo, 0, certificateID, 0, certificateID.Length);
 
 			if (!certificateID.SequenceEqual(EXPECTED_CERTIFICATE_ID)) {
 				return INVALID_CERTIFICATE_ID_RESPONSE;
@@ -89,7 +97,7 @@ namespace PKHaX {
 
 			// * WE DON'T ACTUALLY KNOW WHAT DATA THIS SIGNATURE IS OVER!
 			// * LEAVING IT LIKE THIS FOR NOW UNTIL WE FIND IT
-			byte[] signature = RSA_KEY_PAIR.SignData(encryptedPokemon, 0, encryptedPokemon.Length, algorithm, padding);
+			byte[] signature = RSA_KEY_PAIR.SignData(encryptedPokemonAndPadding, 0, encryptedPokemonAndPadding.Length, algorithm, padding);
 			byte[] responseData = new byte[LEGAL_POKEMON_MAGIC.Length + signature.Length];
 
 			Array.Copy(LEGAL_POKEMON_MAGIC, 0, responseData, 0, LEGAL_POKEMON_MAGIC.Length);
@@ -103,6 +111,7 @@ namespace PKHaX {
 
 			// TODO - Is there a better way to do this? I'm new to c# 💀
 			byte[] publicKeyBytes = RSA_KEY_PAIR.ExportRSAPublicKey();
+			publicKeyBytes = rsaHeader.Concat(publicKeyBytes).ToArray(); //Add the starting ASN.1 that the game expects and C# doesn't generate...
 			string publicKeyBase64String = System.Convert.ToBase64String(publicKeyBytes);
 			byte[] publicKeyBase64Bytes = Encoding.ASCII.GetBytes(publicKeyBase64String);
 
