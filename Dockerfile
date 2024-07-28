@@ -16,7 +16,7 @@ WORKDIR /app
 
 ENV PKHAX_PORT=9000
 ENV PKHAX_PRIVATE_KEY_PATH=/app/private.key
-EXPOSE 900
+EXPOSE 9000
 
 COPY --from=build /app/publish .
 
