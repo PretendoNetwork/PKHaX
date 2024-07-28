@@ -8,8 +8,11 @@ RUN dotnet restore "PKHaX.csproj"
 
 COPY . .
 
-ARG ARCHITECTURE=x64
-RUN dotnet publish "PKHaX.csproj" -c Release -o /app/publish -r "linux-$ARCHITECTURE"
+# This if logic is done to set the correct architecture for the runtime, dotnet publish needs x64 wheras Docker uses amd64
+# TARGETARCH is automatically set by Docker when building the image with the --platform flag
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "amd64" ] ; then export ARCH="x64" ; else export ARCH=$TARGETARCH ; fi; \
+    dotnet publish "PKHaX.csproj" -c Release -o /app/publish -r "linux-$ARCH"
 
 FROM debian:12
 WORKDIR /app
