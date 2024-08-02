@@ -21,6 +21,8 @@ ENV PKHAX_PORT=9000
 ENV PKHAX_PRIVATE_KEY_PATH=/app/private.key
 EXPOSE 9000
 
+RUN apt-get -y update && apt-get install -y libicu-dev libssl-dev
+
 COPY --from=build /app/publish .
 
 ENTRYPOINT ["./PKHaX"]
