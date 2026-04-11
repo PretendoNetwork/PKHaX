@@ -8,7 +8,7 @@ RUN dotnet restore "PKHaX.csproj"
 
 COPY . .
 
-RUN dotnet publish "PKHaX.csproj" -c Release
+RUN dotnet publish "PKHaX.csproj" -c Release -o /app/publish
 
 FROM alpine:3.22
 WORKDIR /app
