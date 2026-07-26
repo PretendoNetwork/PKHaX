@@ -38,7 +38,7 @@ namespace PKHaX {
 					if (REQUEST_HANDLERS.ContainsKey(request.HttpMethod)) {
 						Dictionary<string, Func<HttpListenerRequest, byte[]>> methodHandlers = REQUEST_HANDLERS[request.HttpMethod];
 
-						if (methodHandlers.ContainsKey(request.Url.AbsolutePath)) {
+						if (request.Url != null && methodHandlers.ContainsKey(request.Url.AbsolutePath)) {
 							Func<HttpListenerRequest, byte[]> handler = methodHandlers[request.Url.AbsolutePath];
 							byte [] responseData = handler(request);
 
@@ -115,7 +115,7 @@ namespace PKHaX {
 		}
 
 		public static void ImportRSAKey() {
-			string privateKeyPath = System.Environment.GetEnvironmentVariable("PKHAX_PRIVATE_KEY_PATH");
+			string? privateKeyPath = System.Environment.GetEnvironmentVariable("PKHAX_PRIVATE_KEY_PATH");
 
 			if (String.IsNullOrEmpty(privateKeyPath)) {
 				Console.WriteLine("PKHAX_PRIVATE_KEY_PATH is not set. Set PKHAX_PRIVATE_KEY_PATH to the path of your RSA 2048 private key PEM");
@@ -167,7 +167,7 @@ namespace PKHaX {
 		}
 
 		public static void CheckPortEnvironmentVariable() {
-			string customPortString = System.Environment.GetEnvironmentVariable("PKHAX_PORT");
+			string? customPortString = System.Environment.GetEnvironmentVariable("PKHAX_PORT");
 
 			if (!String.IsNullOrEmpty(customPortString)) {
 				if (Int32.TryParse(customPortString, out int customPort)) {
@@ -181,7 +181,7 @@ namespace PKHaX {
 		}
 
 		public static void CheckCertificateIDEnvironmentVariable() {
-			string customCertificateIDString = System.Environment.GetEnvironmentVariable("PKHAX_CERTIFICATE_ID");
+			string? customCertificateIDString = System.Environment.GetEnvironmentVariable("PKHAX_CERTIFICATE_ID");
 
 			if (!String.IsNullOrEmpty(customCertificateIDString)) {
 				int hexLength = customCertificateIDString.Length;
