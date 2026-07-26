@@ -68,11 +68,11 @@ namespace PKHaX {
 			var sequence = new ReadOnlySequence<byte>(body);
 			var reader = new SequenceReader<byte>(sequence);
 
-			reader.TryReadTo(out ReadOnlySequence<byte> serviceToken, 0x00); // Read to NULL byte
-			reader.Align(4); // Align to every 4 bytes
+			reader.TryReadTo(out ReadOnlySequence<byte> serviceToken, 0x00); // Read to (and advance past) NULL byte
 			reader.TryReadExact(0x6, out var requestInfo);
-			reader.TryReadExact((int)reader.Remaining, out var encryptedPokemonAndPadding);
-			var encryptedPokemon = encryptedPokemonAndPadding.Slice(0, 0xE8); // Slice off the padding
+			reader.TryReadExact(0xA0 + 0xE8, out var encryptedPokemonAndPadding);
+			if (reader.Remaining > 0) throw new Exception($"Expected EOF but got {reader.Remaining} remaining bytes");
+			var encryptedPokemon = encryptedPokemonAndPadding.Slice(0xA0); // Slice off the padding
 
 			// TODO - VERIFY SERVICE TOKEN
 
