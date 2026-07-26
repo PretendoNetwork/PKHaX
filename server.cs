@@ -60,6 +60,8 @@ namespace PKHaX {
 			}
 		}
 
+		// Looks like this endpoint is used for multiple actions. The current implementation only handles one of the variants.
+		// TODO implement the other variants of this endpoint.
 		public static byte[] ValidatorV1Validate(HttpListenerRequest req) {
 			using var ms = new MemoryStream();
 			req.InputStream.CopyTo(ms);
