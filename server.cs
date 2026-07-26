@@ -48,6 +48,7 @@ namespace PKHaX {
 							await response.OutputStream.WriteAsync(responseData, 0, responseData.Length);
 						}
 					}
+					Console.WriteLine($"{request.HttpMethod} {request.Url} - {response.StatusCode}");
 
 					response.Close();
 				}
@@ -67,6 +68,7 @@ namespace PKHaX {
 			var reader = new SequenceReader<byte>(sequence);
 
 			reader.TryReadTo(out ReadOnlySequence<byte> serviceToken, 0x00); // Read to NULL byte
+			reader.Align(4); // Align to every 4 bytes
 			reader.TryReadExact(0x6, out var requestInfo);
 			reader.TryReadExact((int)reader.Remaining, out var encryptedPokemonAndPadding);
 			var encryptedPokemon = encryptedPokemonAndPadding.Slice(0, 0xE8); // Slice off the padding
