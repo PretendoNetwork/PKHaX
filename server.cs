@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using PKHeX.Core;
 using dotenv.net;
 using System.Buffers;
+using System.Text.Json;
 
 namespace PKHaX {
 	class Server {
@@ -78,13 +79,23 @@ namespace PKHaX {
 			var certificateID = requestInfo.Slice(0, 0x2).ToArray();
 
 			if (!certificateID.SequenceEqual(EXPECTED_CERTIFICATE_ID)) {
+				Console.WriteLine("WARN: Invalid certificate ID");
 				return INVALID_CERTIFICATE_ID_RESPONSE;
 			}
 
 			PK6 pokemon = new PK6(encryptedPokemon.ToArray());
 			LegalityAnalysis legalityAnalysis = new LegalityAnalysis(pokemon);
 
-			if (!legalityAnalysis.Valid) {
+			if (!legalityAnalysis.Valid)
+			{
+				if (!legalityAnalysis.Parsed)
+				{
+					Console.WriteLine($"WARN: Invalid pokemon: Failed to parse");
+				}
+				else
+				{
+					Console.WriteLine($"WARN: Invalid pokemon: {JsonSerializer.Serialize(legalityAnalysis.Results)}");
+				}
 				return ILLEGAL_POKEMON_RESPONSE;
 			}
 
