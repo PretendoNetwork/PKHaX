@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Collections.Generic;
 using PKHeX.Core;
 using dotenv.net;
-using System.Linq;
+using System.Buffers;
 
 namespace PKHaX {
 	class Server {
@@ -56,36 +56,27 @@ namespace PKHaX {
 		}
 
 		public static byte[] ValidatorV1Validate(HttpListenerRequest req) {
-			MemoryStream ms = new MemoryStream();
+			using var ms = new MemoryStream();
 			req.InputStream.CopyTo(ms);
-
 			byte[] body = ms.ToArray();
 
-			byte[] serviceToken = new byte[0x31];
-			byte[] requestInfo = new byte[0x6];
-			byte[] encryptedPokemonAndPadding = new byte[body.Length - requestInfo.Length - serviceToken.Length];
-			byte[] encryptedPokemon = new byte[0xE8];
+			var sequence = new ReadOnlySequence<byte>(body);
+			var reader = new SequenceReader<byte>(sequence);
 
-			int serviceTokenOffset = 0;
-			int requestInfoOffset = serviceTokenOffset + serviceToken.Length;
-			int encryptedPokemonAndPaddingOffset = requestInfoOffset + requestInfo.Length;
-
-			Array.Copy(body, serviceTokenOffset, serviceToken, 0, serviceToken.Length);
-			Array.Copy(body, requestInfoOffset, requestInfo, 0, requestInfo.Length);
-			Array.Copy(body, encryptedPokemonAndPaddingOffset, encryptedPokemonAndPadding, 0, encryptedPokemonAndPadding.Length);
-			Array.Copy(encryptedPokemonAndPadding, encryptedPokemonAndPadding.Length - 0xE8, encryptedPokemon, 0, encryptedPokemon.Length);
+			reader.TryReadTo(out ReadOnlySequence<byte> serviceToken, 0x00); // Read to NULL byte
+			reader.TryReadExact(0x6, out var requestInfo);
+			reader.TryReadExact((int)reader.Remaining, out var encryptedPokemonAndPadding);
+			var encryptedPokemon = encryptedPokemonAndPadding.Slice(0, 0xE8); // Slice off the padding
 
 			// TODO - VERIFY SERVICE TOKEN
 
-			byte[] certificateID = new byte[0x2];
-
-			Array.Copy(requestInfo, 0, certificateID, 0, certificateID.Length);
+			var certificateID = requestInfo.Slice(0, 0x2).ToArray();
 
 			if (!certificateID.SequenceEqual(EXPECTED_CERTIFICATE_ID)) {
 				return INVALID_CERTIFICATE_ID_RESPONSE;
 			}
 
-			PK6 pokemon = new PK6(encryptedPokemon);
+			PK6 pokemon = new PK6(encryptedPokemon.ToArray());
 			LegalityAnalysis legalityAnalysis = new LegalityAnalysis(pokemon);
 
 			if (!legalityAnalysis.Valid) {
@@ -97,11 +88,8 @@ namespace PKHaX {
 
 			// * WE DON'T ACTUALLY KNOW WHAT DATA THIS SIGNATURE IS OVER!
 			// * LEAVING IT LIKE THIS FOR NOW UNTIL WE FIND IT
-			byte[] signature = RSA_KEY_PAIR.SignData(encryptedPokemonAndPadding, 0, encryptedPokemonAndPadding.Length, algorithm, padding);
-			byte[] responseData = new byte[LEGAL_POKEMON_MAGIC.Length + signature.Length];
-
-			Array.Copy(LEGAL_POKEMON_MAGIC, 0, responseData, 0, LEGAL_POKEMON_MAGIC.Length);
-			Array.Copy(signature, 0, responseData, LEGAL_POKEMON_MAGIC.Length, signature.Length);
+			byte[] signature = RSA_KEY_PAIR.SignData(encryptedPokemonAndPadding.ToArray(), algorithm, padding);
+			byte[] responseData = LEGAL_POKEMON_MAGIC.Concat(signature).ToArray();
 
 			return responseData;
 		}
