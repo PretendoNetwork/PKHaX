@@ -1,10 +1,6 @@
-using System;
-using System.IO;
 using System.Text;
 using System.Net;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
-using System.Collections.Generic;
 using PKHeX.Core;
 using dotenv.net;
 using System.Buffers;
