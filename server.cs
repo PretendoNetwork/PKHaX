@@ -1,13 +1,10 @@
-using System;
-using System.IO;
 using System.Text;
 using System.Net;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
-using System.Collections.Generic;
 using PKHeX.Core;
 using dotenv.net;
-using System.Linq;
+using System.Buffers;
+using System.Text.Json;
 
 namespace PKHaX {
 	class Server {
@@ -30,65 +27,77 @@ namespace PKHaX {
 
 		public static async Task HandleIncomingConnections() {
 			while (true) {
-				HttpListenerContext ctx = await listener.GetContextAsync();
+				try
+				{
+					HttpListenerContext ctx = await listener.GetContextAsync();
 
-				HttpListenerRequest request = ctx.Request;
-				HttpListenerResponse response = ctx.Response;
+					HttpListenerRequest request = ctx.Request;
+					HttpListenerResponse response = ctx.Response;
 
-				response.StatusCode = 404;
+					response.StatusCode = 404;
 
-				if (REQUEST_HANDLERS.ContainsKey(request.HttpMethod)) {
-					Dictionary<string, Func<HttpListenerRequest, byte[]>> methodHandlers = REQUEST_HANDLERS[request.HttpMethod];
+					if (REQUEST_HANDLERS.ContainsKey(request.HttpMethod)) {
+						Dictionary<string, Func<HttpListenerRequest, byte[]>> methodHandlers = REQUEST_HANDLERS[request.HttpMethod];
 
-					if (methodHandlers.ContainsKey(request.Url.AbsolutePath)) {
-						Func<HttpListenerRequest, byte[]> handler = methodHandlers[request.Url.AbsolutePath];
-						byte [] responseData = handler(request);
+						if (request.Url != null && methodHandlers.ContainsKey(request.Url.AbsolutePath)) {
+							Func<HttpListenerRequest, byte[]> handler = methodHandlers[request.Url.AbsolutePath];
+							byte [] responseData = handler(request);
 
-						response.ContentLength64 = responseData.LongLength;
-						response.StatusCode = 200;
+							response.ContentLength64 = responseData.LongLength;
+							response.StatusCode = 200;
 
-						await response.OutputStream.WriteAsync(responseData, 0, responseData.Length);
+							await response.OutputStream.WriteAsync(responseData, 0, responseData.Length);
+						}
 					}
-				}
+					Console.WriteLine($"{request.HttpMethod} {request.Url} - {response.StatusCode}");
 
-				response.Close();
+					response.Close();
+				}
+				catch (Exception e)
+				{
+					Console.WriteLine($"Exception occured while writing response: {e}");
+				}
 			}
 		}
 
+		// Looks like this endpoint is used for multiple actions. The current implementation only handles one of the variants.
+		// TODO implement the other variants of this endpoint.
 		public static byte[] ValidatorV1Validate(HttpListenerRequest req) {
-			MemoryStream ms = new MemoryStream();
+			using var ms = new MemoryStream();
 			req.InputStream.CopyTo(ms);
-
 			byte[] body = ms.ToArray();
 
-			byte[] serviceToken = new byte[0x31];
-			byte[] requestInfo = new byte[0x6];
-			byte[] encryptedPokemonAndPadding = new byte[body.Length - requestInfo.Length - serviceToken.Length];
-			byte[] encryptedPokemon = new byte[0xE8];
+			var sequence = new ReadOnlySequence<byte>(body);
+			var reader = new SequenceReader<byte>(sequence);
 
-			int serviceTokenOffset = 0;
-			int requestInfoOffset = serviceTokenOffset + serviceToken.Length;
-			int encryptedPokemonAndPaddingOffset = requestInfoOffset + requestInfo.Length;
-
-			Array.Copy(body, serviceTokenOffset, serviceToken, 0, serviceToken.Length);
-			Array.Copy(body, requestInfoOffset, requestInfo, 0, requestInfo.Length);
-			Array.Copy(body, encryptedPokemonAndPaddingOffset, encryptedPokemonAndPadding, 0, encryptedPokemonAndPadding.Length);
-			Array.Copy(encryptedPokemonAndPadding, encryptedPokemonAndPadding.Length - 0xE8, encryptedPokemon, 0, encryptedPokemon.Length);
+			reader.TryReadTo(out ReadOnlySequence<byte> serviceToken, 0x00); // Read to (and advance past) NULL byte
+			reader.TryReadExact(0x6, out var requestInfo);
+			reader.TryReadExact(0xA0 + 0xE8, out var encryptedPokemonAndPadding);
+			if (reader.Remaining > 0) throw new Exception($"Expected EOF but got {reader.Remaining} remaining bytes");
+			var encryptedPokemon = encryptedPokemonAndPadding.Slice(0xA0); // Slice off the padding
 
 			// TODO - VERIFY SERVICE TOKEN
 
-			byte[] certificateID = new byte[0x2];
-
-			Array.Copy(requestInfo, 0, certificateID, 0, certificateID.Length);
+			var certificateID = requestInfo.Slice(0, 0x2).ToArray();
 
 			if (!certificateID.SequenceEqual(EXPECTED_CERTIFICATE_ID)) {
+				Console.WriteLine("WARN: Invalid certificate ID");
 				return INVALID_CERTIFICATE_ID_RESPONSE;
 			}
 
-			PK6 pokemon = new PK6(encryptedPokemon);
+			PK6 pokemon = new PK6(encryptedPokemon.ToArray());
 			LegalityAnalysis legalityAnalysis = new LegalityAnalysis(pokemon);
 
-			if (!legalityAnalysis.Valid) {
+			if (!legalityAnalysis.Valid)
+			{
+				if (!legalityAnalysis.Parsed)
+				{
+					Console.WriteLine($"WARN: Invalid pokemon: Failed to parse");
+				}
+				else
+				{
+					Console.WriteLine($"WARN: Invalid pokemon: {JsonSerializer.Serialize(legalityAnalysis.Results)}");
+				}
 				return ILLEGAL_POKEMON_RESPONSE;
 			}
 
@@ -97,11 +106,8 @@ namespace PKHaX {
 
 			// * WE DON'T ACTUALLY KNOW WHAT DATA THIS SIGNATURE IS OVER!
 			// * LEAVING IT LIKE THIS FOR NOW UNTIL WE FIND IT
-			byte[] signature = RSA_KEY_PAIR.SignData(encryptedPokemonAndPadding, 0, encryptedPokemonAndPadding.Length, algorithm, padding);
-			byte[] responseData = new byte[LEGAL_POKEMON_MAGIC.Length + signature.Length];
-
-			Array.Copy(LEGAL_POKEMON_MAGIC, 0, responseData, 0, LEGAL_POKEMON_MAGIC.Length);
-			Array.Copy(signature, 0, responseData, LEGAL_POKEMON_MAGIC.Length, signature.Length);
+			byte[] signature = RSA_KEY_PAIR.SignData(encryptedPokemonAndPadding.ToArray(), algorithm, padding);
+			byte[] responseData = LEGAL_POKEMON_MAGIC.Concat(signature).ToArray();
 
 			return responseData;
 		}
@@ -124,7 +130,7 @@ namespace PKHaX {
 		}
 
 		public static void ImportRSAKey() {
-			string privateKeyPath = System.Environment.GetEnvironmentVariable("PKHAX_PRIVATE_KEY_PATH");
+			string? privateKeyPath = System.Environment.GetEnvironmentVariable("PKHAX_PRIVATE_KEY_PATH");
 
 			if (String.IsNullOrEmpty(privateKeyPath)) {
 				Console.WriteLine("PKHAX_PRIVATE_KEY_PATH is not set. Set PKHAX_PRIVATE_KEY_PATH to the path of your RSA 2048 private key PEM");
@@ -176,7 +182,7 @@ namespace PKHaX {
 		}
 
 		public static void CheckPortEnvironmentVariable() {
-			string customPortString = System.Environment.GetEnvironmentVariable("PKHAX_PORT");
+			string? customPortString = System.Environment.GetEnvironmentVariable("PKHAX_PORT");
 
 			if (!String.IsNullOrEmpty(customPortString)) {
 				if (Int32.TryParse(customPortString, out int customPort)) {
@@ -190,7 +196,7 @@ namespace PKHaX {
 		}
 
 		public static void CheckCertificateIDEnvironmentVariable() {
-			string customCertificateIDString = System.Environment.GetEnvironmentVariable("PKHAX_CERTIFICATE_ID");
+			string? customCertificateIDString = System.Environment.GetEnvironmentVariable("PKHAX_CERTIFICATE_ID");
 
 			if (!String.IsNullOrEmpty(customCertificateIDString)) {
 				int hexLength = customCertificateIDString.Length;
