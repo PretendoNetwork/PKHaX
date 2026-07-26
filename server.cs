@@ -30,28 +30,35 @@ namespace PKHaX {
 
 		public static async Task HandleIncomingConnections() {
 			while (true) {
-				HttpListenerContext ctx = await listener.GetContextAsync();
+				try
+				{
+					HttpListenerContext ctx = await listener.GetContextAsync();
 
-				HttpListenerRequest request = ctx.Request;
-				HttpListenerResponse response = ctx.Response;
+					HttpListenerRequest request = ctx.Request;
+					HttpListenerResponse response = ctx.Response;
 
-				response.StatusCode = 404;
+					response.StatusCode = 404;
 
-				if (REQUEST_HANDLERS.ContainsKey(request.HttpMethod)) {
-					Dictionary<string, Func<HttpListenerRequest, byte[]>> methodHandlers = REQUEST_HANDLERS[request.HttpMethod];
+					if (REQUEST_HANDLERS.ContainsKey(request.HttpMethod)) {
+						Dictionary<string, Func<HttpListenerRequest, byte[]>> methodHandlers = REQUEST_HANDLERS[request.HttpMethod];
 
-					if (methodHandlers.ContainsKey(request.Url.AbsolutePath)) {
-						Func<HttpListenerRequest, byte[]> handler = methodHandlers[request.Url.AbsolutePath];
-						byte [] responseData = handler(request);
+						if (methodHandlers.ContainsKey(request.Url.AbsolutePath)) {
+							Func<HttpListenerRequest, byte[]> handler = methodHandlers[request.Url.AbsolutePath];
+							byte [] responseData = handler(request);
 
-						response.ContentLength64 = responseData.LongLength;
-						response.StatusCode = 200;
+							response.ContentLength64 = responseData.LongLength;
+							response.StatusCode = 200;
 
-						await response.OutputStream.WriteAsync(responseData, 0, responseData.Length);
+							await response.OutputStream.WriteAsync(responseData, 0, responseData.Length);
+						}
 					}
-				}
 
-				response.Close();
+					response.Close();
+				}
+				catch (Exception e)
+				{
+					Console.WriteLine($"Exception occured while writing response: {e}");
+				}
 			}
 		}
 
