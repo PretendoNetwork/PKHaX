@@ -25,10 +25,12 @@ namespace PKHaX {
 			InvalidCertificateID = 2
 		}
 
-		// TODO - Give these values proper names when more context is found
 		public enum ValidatorV1ValidatePayloadType : ushort {
-			Type1 = 1, // * Seems to be nearly identical to Type2, but has an extra 0xA0 blob before the Pokemon data?
-			Type2 = 2
+			Unknown1 = 1, // * Seen in `DllGts.cro` and `DllRandomTrade.cro` (Wonder Trades)
+			Unknown2 = 2, // * Seen in `DllGts.cro`
+			PSSTrade = 3,
+			Battle = 4,
+			BattleVideo = 5
 		}
 
 		public sealed class ValidatorV1ValidateRequest {
@@ -112,8 +114,8 @@ namespace PKHaX {
 			}
 
 			object payload = (ValidatorV1ValidatePayloadType)(ushort)payloadType switch{
-				ValidatorV1ValidatePayloadType.Type1 => ParseValidatorV1ValidateType1Payload(ref reader),
-				ValidatorV1ValidatePayloadType.Type2 => ParseValidatorV1ValidateType2Payload(ref reader),
+				ValidatorV1ValidatePayloadType.Unknown1 => ParseValidatorV1ValidateType1Payload(ref reader),
+				ValidatorV1ValidatePayloadType.Unknown2 => ParseValidatorV1ValidateType2Payload(ref reader),
 				_ => throw new InvalidDataException($"Unknown payload type {payloadType}")
 			};
 
