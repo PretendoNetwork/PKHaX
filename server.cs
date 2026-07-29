@@ -40,19 +40,18 @@ namespace PKHaX {
 			public object Payload { get; init; } = null!;
 		}
 
-		// TODO - Give these structs proper names when more context is found
-		public sealed class ValidatorV1ValidateType1Payload {
+		public sealed class ValidatorV1ValidateExtendedPayload {
 			public ushort Count { get; init; }
-			public List<ValidatorV1ValidateType1Entry> Entries { get; init; } = new();
+			public List<ValidatorV1ValidateExtendedPayloadEntry> Entries { get; init; } = new();
 		}
 
-		public sealed class ValidatorV1ValidateType1Entry {
+		public sealed class ValidatorV1ValidateExtendedPayloadEntry {
 			// TODO - Can PKHeX handle this "Unknown" section natively or no? Should we even bother separating this out, what is this, have we just been getting lucky this whole time?
 			public byte[] Unknown { get; init; } = null!;
 			public byte[] EncryptedPokemon { get; init; } = null!;
 		}
 
-		public sealed class ValidatorV1ValidateType2Payload {
+		public sealed class ValidatorV1ValidatePayload {
 			public ushort Count { get; init; }
 			public List<byte[]> EncryptedPokemon { get; init; } = new();
 		}
@@ -114,8 +113,8 @@ namespace PKHaX {
 			}
 
 			object payload = (ValidatorV1ValidatePayloadType)(ushort)payloadType switch{
-				ValidatorV1ValidatePayloadType.Unknown1 => ParseValidatorV1ValidateType1Payload(ref reader),
-				ValidatorV1ValidatePayloadType.Unknown2 => ParseValidatorV1ValidateType2Payload(ref reader),
+				ValidatorV1ValidatePayloadType.Unknown1 => ParseValidatorV1ValidateExtendedPayload(ref reader),
+				ValidatorV1ValidatePayloadType.Unknown2 => ParseValidatorV1ValidatePayload(ref reader),
 				_ => throw new InvalidDataException($"Unknown payload type {payloadType}")
 			};
 
@@ -131,12 +130,12 @@ namespace PKHaX {
 			};
 		}
 
-		public static ValidatorV1ValidateType1Payload ParseValidatorV1ValidateType1Payload(ref SequenceReader<byte> reader) {
+		public static ValidatorV1ValidateExtendedPayload ParseValidatorV1ValidateExtendedPayload(ref SequenceReader<byte> reader) {
 			if (!reader.TryReadBigEndian(out short count)) {
 				throw new InvalidDataException("Failed to read count");
 			}
 
-			var payload = new ValidatorV1ValidateType1Payload {
+			var payload = new ValidatorV1ValidateExtendedPayload {
 				Count = (ushort)count
 			};
 
@@ -154,7 +153,7 @@ namespace PKHaX {
 					throw new InvalidDataException("Failed to read encrypted Pokemon data");
 				}
 
-				payload.Entries.Add(new ValidatorV1ValidateType1Entry {
+				payload.Entries.Add(new ValidatorV1ValidateExtendedPayloadEntry {
 					Unknown = unknown.ToArray(),
 					EncryptedPokemon = pokemon.ToArray()
 				});
@@ -163,12 +162,12 @@ namespace PKHaX {
 			return payload;
 		}
 
-		public static ValidatorV1ValidateType2Payload ParseValidatorV1ValidateType2Payload(ref SequenceReader<byte> reader) {
+		public static ValidatorV1ValidatePayload ParseValidatorV1ValidatePayload(ref SequenceReader<byte> reader) {
 			if (!reader.TryReadBigEndian(out short count)) {
 				throw new InvalidDataException("Failed to read count");
 			}
 
-			var payload = new ValidatorV1ValidateType2Payload {
+			var payload = new ValidatorV1ValidatePayload {
 				Count = (ushort)count
 			};
 
@@ -219,7 +218,7 @@ namespace PKHaX {
 			bool hasInvalid = false;
 
 			switch (request.Payload) {
-				case ValidatorV1ValidateType1Payload payload:
+				case ValidatorV1ValidateExtendedPayload payload:
 					foreach (var entry in payload.Entries) {
 						var encryptedPokemon = entry.EncryptedPokemon;
 						PK6 pokemon = new PK6(encryptedPokemon.ToArray());
@@ -239,7 +238,7 @@ namespace PKHaX {
 						}
 					}
 					break;
-				case ValidatorV1ValidateType2Payload payload:
+				case ValidatorV1ValidatePayload payload:
 					foreach (var encryptedPokemon in payload.EncryptedPokemon) {
 						PK6 pokemon = new PK6(encryptedPokemon.ToArray());
 						LegalityAnalysis legalityAnalysis = new LegalityAnalysis(pokemon);
