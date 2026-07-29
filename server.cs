@@ -238,9 +238,9 @@ namespace PKHaX {
 							}
 
 							hasInvalid = true;
-							legalityResults.Add(ValidatorV1ValidateResponseCode.Illegal);
+							legalityResults.Add((uint)ValidatorV1ValidateResponseCode.Illegal);
 						} else {
-							legalityResults.Add(ValidatorV1ValidateResponseCode.Legal);
+							legalityResults.Add((uint)ValidatorV1ValidateResponseCode.Legal);
 						}
 					}
 					break;
@@ -257,9 +257,9 @@ namespace PKHaX {
 							}
 
 							hasInvalid = true;
-							legalityResults.Add(ValidatorV1ValidateResponseCode.Illegal);
+							legalityResults.Add((uint)ValidatorV1ValidateResponseCode.Illegal);
 						} else {
-							legalityResults.Add(ValidatorV1ValidateResponseCode.Legal);
+							legalityResults.Add((uint)ValidatorV1ValidateResponseCode.Legal);
 						}
 					}
 					break;
