@@ -112,9 +112,15 @@ namespace PKHaX {
 				throw new InvalidDataException("Failed to read payload type");
 			}
 
+			// * It appears that every payload type besides type 1 uses the basic encrypted Pokemon container.
+			// * Unsure why there's different payload types for this, maybe the real server changed the kind
+			// * of checks done depending on the context?
 			object payload = (ValidatorV1ValidatePayloadType)(ushort)payloadType switch{
 				ValidatorV1ValidatePayloadType.Unknown1 => ParseValidatorV1ValidateExtendedPayload(ref reader),
 				ValidatorV1ValidatePayloadType.Unknown2 => ParseValidatorV1ValidatePayload(ref reader),
+				ValidatorV1ValidatePayloadType.PSSTrade => ParseValidatorV1ValidatePayload(ref reader),
+				ValidatorV1ValidatePayloadType.Battle => ParseValidatorV1ValidatePayload(ref reader),
+				ValidatorV1ValidatePayloadType.BattleVideo => ParseValidatorV1ValidatePayload(ref reader),
 				_ => throw new InvalidDataException($"Unknown payload type {payloadType}")
 			};
 
