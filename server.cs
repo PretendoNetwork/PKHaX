@@ -138,6 +138,11 @@ namespace PKHaX {
 				Count = (ushort)count
 			};
 
+			// * The response parser seems to cap this at 12, so assuming the request is also capped
+			if (payload.Count > 12) {
+				throw new InvalidDataException("Count is more than 12");
+			}
+
 			for (int i = 0; i < payload.Count; i++) {
 				if (!reader.TryReadExact(0xA0, out var unknown)) {
 					throw new InvalidDataException("Failed to read unknown data");
@@ -164,6 +169,11 @@ namespace PKHaX {
 			var payload = new ValidatorV1ValidateType2Payload {
 				Count = (ushort)count
 			};
+
+			// * The response parser seems to cap this at 12, so assuming the request is also capped
+			if (payload.Count > 12) {
+				throw new InvalidDataException("Count is more than 12");
+			}
 
 			for (int i = 0; i < payload.Count; i++) {
 				if (!reader.TryReadExact(0xE8, out var pokemon)) {
