@@ -14,13 +14,16 @@ namespace PKHaX {
 		public static string protocol = "http";
 		public static int port = 9000;
 		public static ushort EXPECTED_CERTIFICATE_ID = 3;
-		public static byte[] INVALID_CERTIFICATE_ID_RESPONSE = new byte[] { 0x02 };
-		public static byte[] ILLEGAL_POKEMON_RESPONSE = new byte[] { 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A };
-		public static byte[] LEGAL_POKEMON_MAGIC = new byte[] { 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00 };
 		public static byte[] rsaHeader = {
 			0x30, 0x82, 0x01, 0x22, 0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86,
 			0xF7, 0x0D, 0x01, 0x01, 0x01, 0x05, 0x00, 0x03, 0x82, 0x01, 0x0F, 0x00
 		};
+
+		public enum ValidatorV1ValidateResponseCode : byte {
+			Legal = 0,
+			Illegal = 1,
+			InvalidCertificateID = 2
+		}
 
 		// TODO - Give these values proper names when more context is found
 		public enum ValidatorV1ValidatePayloadType : ushort {
@@ -187,8 +190,12 @@ namespace PKHaX {
 				// * This is expected to happen, since the game requests the certificate at the start of a save file
 				// * and then never again unless the server tells it to. So people with existing saves will not have
 				// * our certificate ID
-				return INVALID_CERTIFICATE_ID_RESPONSE;
+				return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.InvalidCertificateID);
 			}
+
+			// TODO - Figure out what these values mean and enum them, magic numbers bad
+			List<uint> values = new List<uint>();
+			bool hasInvalid = false;
 
 			switch (request.Payload) {
 				case ValidatorV1ValidateType1Payload payload:
@@ -204,7 +211,10 @@ namespace PKHaX {
 								Console.WriteLine($"WARN: Invalid pokemon: {JsonSerializer.Serialize(legalityAnalysis.Results)}");
 							}
 
-							return ILLEGAL_POKEMON_RESPONSE;
+							hasInvalid = true;
+							values.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
+						} else {
+							values.Add(0x00);
 						}
 					}
 					break;
@@ -220,10 +230,17 @@ namespace PKHaX {
 								Console.WriteLine($"WARN: Invalid pokemon: {JsonSerializer.Serialize(legalityAnalysis.Results)}");
 							}
 
-							return ILLEGAL_POKEMON_RESPONSE;
+							hasInvalid = true;
+							values.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
+						} else {
+							values.Add(0x00);
 						}
 					}
 					break;
+			}
+
+			if (hasInvalid) {
+				return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.Illegal, values);
 			}
 
 			HashAlgorithmName algorithm = HashAlgorithmName.SHA256;
@@ -232,9 +249,45 @@ namespace PKHaX {
 			// TODO - WE DON'T ACTUALLY KNOW WHAT DATA THIS SIGNATURE IS OVER! LEAVING IT LIKE THIS FOR NOW UNTIL WE FIND IT
 			// * We have sigpatches for these signatures so this doesn't super matter
 			byte[] signature = RSA_KEY_PAIR.SignData(body.ToArray(), algorithm, padding);
-			byte[] responseData = LEGAL_POKEMON_MAGIC.Concat(signature).ToArray();
 
-			return responseData;
+			return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.Legal, values, signature);
+		}
+
+		public static byte[] CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode responseCode, IReadOnlyList<uint>? values = null, byte[]? signature = null) {
+			int responseLength = 1;
+			int valueCount = values?.Count ?? 0;
+			int offset = 0;
+
+			// * This doesn't exist in the invalid certificate response
+			if (valueCount != 0) {
+				responseLength += 2;
+				responseLength += valueCount * 4;
+			}
+
+			// * This doesn't exist in the invalid certificate or illegal Pokemon responses
+			if (signature != null) {
+				responseLength += signature.Length;
+			}
+
+			byte[] response = new byte[responseLength];
+
+			response[offset++] = (byte)responseCode;
+
+			if (values != null) {
+				BinaryPrimitives.WriteUInt16BigEndian(response.AsSpan(offset, 2), (ushort)values.Count);
+				offset += 2;
+
+				foreach (uint value in values) {
+					BinaryPrimitives.WriteUInt32BigEndian(response.AsSpan(offset, 4), value);
+					offset += 4;
+				}
+			}
+
+			if (signature != null) {
+				signature.CopyTo(response, offset);
+			}
+
+			return response;
 		}
 
 		public static byte[] ValidatorV1PublicKey(HttpListenerRequest req) {
