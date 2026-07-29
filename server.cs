@@ -192,7 +192,16 @@ namespace PKHaX {
 			req.InputStream.CopyTo(ms);
 
 			var body = ms.GetBuffer().AsMemory(0, (int)ms.Length);
-			ValidatorV1ValidateRequest request = ParseValidatorV1ValidateRequest(body);
+			ValidatorV1ValidateRequest request;
+
+			try {
+				request = ParseValidatorV1ValidateRequest(body);
+			} catch (Exception exception) {
+				Console.WriteLine($"WARN: Failed to parse ValidatorV1Validate request: {exception}");
+
+				// * The real server seems to return HTML with the text "error" here, so I don't think this matters. Just need to bail, it's bad data anyway
+				return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.Illegal);
+			}
 
 			// TODO - VERIFY SERVICE TOKEN
 
