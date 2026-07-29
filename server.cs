@@ -219,8 +219,8 @@ namespace PKHaX {
 				return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.InvalidCertificateID);
 			}
 
-			// TODO - Figure out what these values mean and enum them, magic numbers bad
-			List<uint> values = new List<uint>();
+			// * This name is a guess, game seems to loop over these values when checking if the response is legal or not
+			List<uint> legalityResults = new List<uint>();
 			bool hasInvalid = false;
 
 			switch (request.Payload) {
@@ -238,9 +238,9 @@ namespace PKHaX {
 							}
 
 							hasInvalid = true;
-							values.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
+							legalityResults.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
 						} else {
-							values.Add(0x00);
+							legalityResults.Add(0x00);
 						}
 					}
 					break;
@@ -257,16 +257,16 @@ namespace PKHaX {
 							}
 
 							hasInvalid = true;
-							values.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
+							legalityResults.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
 						} else {
-							values.Add(0x00);
+							legalityResults.Add(0x00);
 						}
 					}
 					break;
 			}
 
 			if (hasInvalid) {
-				return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.Illegal, values);
+				return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.Illegal, legalityResults);
 			}
 
 			HashAlgorithmName algorithm = HashAlgorithmName.SHA256;
@@ -276,18 +276,18 @@ namespace PKHaX {
 			// * We have sigpatches for these signatures so this doesn't super matter
 			byte[] signature = RSA_KEY_PAIR.SignData(body.ToArray(), algorithm, padding);
 
-			return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.Legal, values, signature);
+			return CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode.Legal, legalityResults, signature);
 		}
 
-		public static byte[] CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode responseCode, IReadOnlyList<uint>? values = null, byte[]? signature = null) {
+		public static byte[] CreateValidatorV1ValidateResponse(ValidatorV1ValidateResponseCode responseCode, IReadOnlyList<uint>? legalityResults = null, byte[]? signature = null) {
 			int responseLength = 1;
-			int valueCount = values?.Count ?? 0;
+			int legalityResultsCount = legalityResults?.Count ?? 0;
 			int offset = 0;
 
 			// * This doesn't exist in the invalid certificate response
-			if (valueCount != 0) {
+			if (legalityResultsCount != 0) {
 				responseLength += 2;
-				responseLength += valueCount * 4;
+				responseLength += legalityResultsCount * 4;
 			}
 
 			// * This doesn't exist in the invalid certificate or illegal Pokemon responses
@@ -299,11 +299,11 @@ namespace PKHaX {
 
 			response[offset++] = (byte)responseCode;
 
-			if (values != null) {
-				BinaryPrimitives.WriteUInt16BigEndian(response.AsSpan(offset, 2), (ushort)values.Count);
+			if (legalityResults != null) {
+				BinaryPrimitives.WriteUInt16BigEndian(response.AsSpan(offset, 2), (ushort)legalityResults.Count);
 				offset += 2;
 
-				foreach (uint value in values) {
+				foreach (uint value in legalityResults) {
 					BinaryPrimitives.WriteUInt32BigEndian(response.AsSpan(offset, 4), value);
 					offset += 4;
 				}
