@@ -238,9 +238,9 @@ namespace PKHaX {
 							}
 
 							hasInvalid = true;
-							legalityResults.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
+							legalityResults.Add(ValidatorV1ValidateResponseCode.Illegal);
 						} else {
-							legalityResults.Add(0x00);
+							legalityResults.Add(ValidatorV1ValidateResponseCode.Legal);
 						}
 					}
 					break;
@@ -257,9 +257,9 @@ namespace PKHaX {
 							}
 
 							hasInvalid = true;
-							legalityResults.Add(0x0A); // * This came from a dump I believe, but the game seems to override this with a value of 1?
+							legalityResults.Add(ValidatorV1ValidateResponseCode.Illegal);
 						} else {
-							legalityResults.Add(0x00);
+							legalityResults.Add(ValidatorV1ValidateResponseCode.Legal);
 						}
 					}
 					break;
