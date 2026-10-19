@@ -3,7 +3,7 @@ using dotenv.net;
 namespace PKHaX {
 	static class Program {
 		public static void Main(string[] args) {
-			DotEnv.Load();
+			DotEnv.Load(new DotEnvOptions(overwriteExistingVars: false));
 
 			Certificate.ImportRSAKey();
 			Server.CreateRequestHandlers();
