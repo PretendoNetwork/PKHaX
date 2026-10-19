@@ -5,11 +5,6 @@ namespace PKHaX {
 		public static void Main(string[] args) {
 			DotEnv.Load(new DotEnvOptions(overwriteExistingVars: false));
 
-			Certificate.ImportRSAKey();
-
-			Server.CheckPortEnvironmentVariable();
-			Certificate.CheckCertificateIDEnvironmentVariable();
-
 			// TODO - It would be nice to display the current PKHeX version at startup
 
 			Server.Start(args);

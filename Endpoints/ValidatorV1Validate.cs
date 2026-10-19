@@ -6,16 +6,16 @@ using PKHeX.Core;
 namespace PKHaX {
 	// * Handles validating Pokemon data for legality
 	static class ValidatorV1Validate {
-		public static async Task HandleAsync(HttpContext context) {
+		public static async Task HandleAsync(HttpContext context, Certificate certificate) {
 			using var ms = new MemoryStream();
 			await context.Request.Body.CopyToAsync(ms);
 
-			byte[] responseData = Handle(ms.GetBuffer().AsMemory(0, (int)ms.Length));
+			byte[] responseData = Handle(ms.GetBuffer().AsMemory(0, (int)ms.Length), certificate);
 
 			await Server.WriteResponse(context, responseData);
 		}
 
-		public static byte[] Handle(ReadOnlyMemory<byte> body) {
+		public static byte[] Handle(ReadOnlyMemory<byte> body, Certificate certificate) {
 			ValidatorV1ValidateRequest request;
 
 			try {
@@ -29,7 +29,7 @@ namespace PKHaX {
 
 			// TODO - VERIFY SERVICE TOKEN
 
-			if (request.CertificateID != Certificate.EXPECTED_CERTIFICATE_ID) {
+			if (request.CertificateID != certificate.EXPECTED_CERTIFICATE_ID) {
 				// * This is expected to happen, since the game requests the certificate at the start of a save file
 				// * and then never again unless the server tells it to. So people with existing saves will not have
 				// * our certificate ID
@@ -89,7 +89,7 @@ namespace PKHaX {
 			HashAlgorithmName algorithm = HashAlgorithmName.SHA256;
 			RSASignaturePadding padding = RSASignaturePadding.Pkcs1;
 
-			byte[] signature = Certificate.RSA_KEY_PAIR.SignData(body.Slice(request.PayloadOffset).ToArray(), algorithm, padding);
+			byte[] signature = certificate.RSA_KEY_PAIR.SignData(body.Slice(request.PayloadOffset).ToArray(), algorithm, padding);
 
 			return CreateResponse(ValidatorV1ValidateResponseCode.Legal, legalityResults, signature);
 		}

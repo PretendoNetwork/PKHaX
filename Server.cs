@@ -1,20 +1,27 @@
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace PKHaX {
 	static class Server {
 		public static string protocol = "http";
-		public static int port = 9000;
 
 		public static void Start(string[] args) {
-			string prefix = string.Format("{0}://*:{1}/", protocol, port);
-
 			WebApplicationBuilder builder = WebApplication.CreateSlimBuilder(args);
+
+			PKHaXOptions pkhaxOptions = PKHaXOptions.Read(builder.Configuration);
+
+			builder.Services.AddSingleton(Options.Create(pkhaxOptions));
+			builder.Services.AddSingleton<Certificate>();
+
+			string prefix = string.Format("{0}://*:{1}/", protocol, pkhaxOptions.Port);
 
 			builder.WebHost.UseUrls(prefix);
 			builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 			builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
 			WebApplication app = builder.Build();
+
+			app.Services.GetRequiredService<Certificate>();
 
 			app.Use(async (context, next) => {
 				await next();
@@ -41,20 +48,6 @@ namespace PKHaX {
 			context.Response.ContentLength = responseData.Length;
 
 			await context.Response.Body.WriteAsync(responseData);
-		}
-
-		public static void CheckPortEnvironmentVariable() {
-			string? customPortString = System.Environment.GetEnvironmentVariable("PKHAX_PORT");
-
-			if (!String.IsNullOrEmpty(customPortString)) {
-				if (Int32.TryParse(customPortString, out int customPort)) {
-					port = customPort;
-				} else {
-					Console.WriteLine("{0} is not a valid number. Using default port {1}", customPortString, port);
-				}
-			} else {
-				Console.WriteLine("No port set. Using default port {0}", port);
-			}
 		}
 	}
 }
