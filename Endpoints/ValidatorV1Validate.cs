@@ -85,9 +85,7 @@ namespace PKHaX {
 			HashAlgorithmName algorithm = HashAlgorithmName.SHA256;
 			RSASignaturePadding padding = RSASignaturePadding.Pkcs1;
 
-			// TODO - WE DON'T ACTUALLY KNOW WHAT DATA THIS SIGNATURE IS OVER! LEAVING IT LIKE THIS FOR NOW UNTIL WE FIND IT
-			// * We have sigpatches for these signatures so this doesn't super matter
-			byte[] signature = Certificate.RSA_KEY_PAIR.SignData(body.ToArray(), algorithm, padding);
+			byte[] signature = Certificate.RSA_KEY_PAIR.SignData(body.Slice(request.PayloadOffset).ToArray(), algorithm, padding);
 
 			return CreateResponse(ValidatorV1ValidateResponseCode.Legal, legalityResults, signature);
 		}

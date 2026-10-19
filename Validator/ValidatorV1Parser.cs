@@ -12,6 +12,9 @@ namespace PKHaX {
 
 			string serviceToken = Encoding.ASCII.GetString(serviceTokenBytes.ToArray());
 
+			// * Start of the encrypted Pokemon team payload. The response signature is over this section
+			int payloadOffset = (int)serviceTokenBytes.Length + 1 + 6;
+
 			if (!reader.TryReadLittleEndian(out short certificateID)) {
 				throw new InvalidDataException("Failed to read certificate ID");
 			}
@@ -40,7 +43,8 @@ namespace PKHaX {
 				ServiceToken = serviceToken,
 				CertificateID = (ushort)certificateID,
 				PayloadType = (ValidatorV1ValidatePayloadType)(ushort)payloadType,
-				Payload = payload
+				Payload = payload,
+				PayloadOffset = payloadOffset
 			};
 		}
 

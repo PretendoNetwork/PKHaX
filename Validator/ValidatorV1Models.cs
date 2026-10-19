@@ -18,6 +18,7 @@ namespace PKHaX {
 		public ushort CertificateID { get; init; }
 		public ValidatorV1ValidatePayloadType PayloadType { get; init; }
 		public object Payload { get; init; } = null!;
+		public int PayloadOffset { get; init; }
 	}
 
 	public sealed class ValidatorV1ValidateExtendedPayload {
