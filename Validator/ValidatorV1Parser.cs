@@ -53,6 +53,11 @@ namespace PKHaX {
 				Count = (ushort)count
 			};
 
+			// * A request with nothing in it to check is nonsense, bail
+			if (payload.Count == 0) {
+				throw new InvalidDataException("Count is 0");
+			}
+
 			// * The response parser seems to cap this at 12, so assuming the request is also capped
 			if (payload.Count > 12) {
 				throw new InvalidDataException("Count is more than 12");
@@ -84,6 +89,11 @@ namespace PKHaX {
 			var payload = new ValidatorV1ValidatePayload {
 				Count = (ushort)count
 			};
+
+			// * A request with nothing in it to check is nonsense, bail
+			if (payload.Count == 0) {
+				throw new InvalidDataException("Count is 0");
+			}
 
 			// * The response parser seems to cap this at 12, so assuming the request is also capped
 			if (payload.Count > 12) {
