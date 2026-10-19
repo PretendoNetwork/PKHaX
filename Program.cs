@@ -6,14 +6,13 @@ namespace PKHaX {
 			DotEnv.Load(new DotEnvOptions(overwriteExistingVars: false));
 
 			Certificate.ImportRSAKey();
-			Server.CreateRequestHandlers();
 
 			Server.CheckPortEnvironmentVariable();
 			Certificate.CheckCertificateIDEnvironmentVariable();
 
 			// TODO - It would be nice to display the current PKHeX version at startup
 
-			Server.Start();
+			Server.Start(args);
 		}
 	}
 }

@@ -1,10 +1,13 @@
-using System.Net;
 using System.Buffers.Binary;
 using System.Text;
 
 namespace PKHaX {
 	static class ValidatorV1PublicKey {
-		public static byte[] Handle(HttpListenerRequest req) {
+		public static async Task HandleAsync(HttpContext context) {
+			await Server.WriteResponse(context, Handle());
+		}
+
+		public static byte[] Handle() {
 			// TODO - VERIFY SERVICE TOKEN
 
 			// TODO - Is there a better way to do this? I'm new to C# 💀

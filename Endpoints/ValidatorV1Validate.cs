@@ -1,4 +1,3 @@
-using System.Net;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -7,11 +6,16 @@ using PKHeX.Core;
 namespace PKHaX {
 	// * Handles validating Pokemon data for legality
 	static class ValidatorV1Validate {
-		public static byte[] Handle(HttpListenerRequest req) {
+		public static async Task HandleAsync(HttpContext context) {
 			using var ms = new MemoryStream();
-			req.InputStream.CopyTo(ms);
+			await context.Request.Body.CopyToAsync(ms);
 
-			var body = ms.GetBuffer().AsMemory(0, (int)ms.Length);
+			byte[] responseData = Handle(ms.GetBuffer().AsMemory(0, (int)ms.Length));
+
+			await Server.WriteResponse(context, responseData);
+		}
+
+		public static byte[] Handle(ReadOnlyMemory<byte> body) {
 			ValidatorV1ValidateRequest request;
 
 			try {
